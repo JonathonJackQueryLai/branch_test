@@ -6,6 +6,7 @@
 # @motto   :  rain cats and dogs
 from flask import Flask  # 用于创建 Flask 实例
 from flask_restful import Api, Resource, reqparse, inputs
+
 # 用于绑定 Flask 对象, 继承父类, 实例化对象, 判断 url
 
 web = Flask(__name__)
@@ -36,7 +37,7 @@ class IndexView(Resource):
 
 
 # 给视图函数类增添 url, 和起别名
-api.add_resource(IndexView, '/', endpoint='index')
+api.add_resource(IndexView, '/index')
 
 
 if __name__ == '__main__':
