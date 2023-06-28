@@ -12,7 +12,7 @@ from flask_restful import Api, Resource, reqparse, inputs
 web = Flask(__name__)
 # 使用 Api 来绑定 web
 api = Api(web)
-
+print("test")
 
 class IndexView(Resource):
     def get(self):
