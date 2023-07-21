@@ -19,6 +19,7 @@ def weekly_report_task():
 
     # 数据获取
     uri = "postgresql://postgres:nft_project123@52.89.34.220:5432/eth_nft"
+
     # 从pgsql中获取合约信息
     contract_info_query_sql = "select * from contract_info"
     contract_info = pl.read_database(contract_info_query_sql, uri)
