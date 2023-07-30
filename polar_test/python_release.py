@@ -86,4 +86,29 @@ def weekly_report_task():
 
 
 if __name__ == '__main__':
-    weekly_report_task()
+    # weekly_report_task()
+    import polars as pl
+
+    # 构建示例数据
+    data = {
+        'contract_address': ['0x123', '0x456', '0x123', '0x789', '0x456','0x789'],
+        'token_id': [1, 2, 1, 3, 2,3],
+        'price': [100, 200, 150, 300, 250,1000]
+    }
+
+    # 创建DataFrame
+    week_trade_df = pl.DataFrame(data)
+
+    # 分组并计算每个分组中价格字段的最小值、最大值和平均值
+    result = week_trade_df.groupby(['contract_address', 'token_id']).agg(
+        pl.min('price').alias('min_price'),
+        pl.max('price').alias('max_price'),
+        pl.mean('price').alias('avg_price')
+    ).sort('avg_price',descending=True)
+    print(week_trade_df.groupby(['contract_address', 'token_id']).sum())
+        # 计算 price 字段的平均值
+    average_price = week_trade_df['price'].mean()
+    print(average_price)
+    # 打印结果
+    # print(result.head(1))
+    # print(result.tail(1))

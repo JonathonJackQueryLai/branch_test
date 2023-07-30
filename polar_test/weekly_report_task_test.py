@@ -26,9 +26,9 @@ logger.setLevel(logging.INFO)
 
 # 创建文件处理器，并将格式化器添加到处理器中
 
-file_handler = logging.FileHandler(f'./log/app_{datetime.datetime.now().strftime("%Y_%m_%d_%H%M%S_%f")}.log')
-# file_handler = logging.FileHandler(
-# f'/home/project/logs/weekreport_log/logs/app_{datetime.datetime.now().strftime("%Y_%m_%d_%H%M%S_%f")}.log')
+# file_handler = logging.FileHandler(f'./log/app_{datetime.datetime.now().strftime("%Y_%m_%d_%H%M%S_%f")}.log')
+file_handler = logging.FileHandler(
+f'/home/project/logs/weekreport_log/logs/app_{datetime.datetime.now().strftime("%Y_%m_%d_%H%M%S_%f")}.log')
 file_handler.setFormatter(formatter)
 
 # 将处理器添加到日志记录器中
@@ -105,14 +105,7 @@ def weekly_report_task():
             pl.col('block_number').cast(int) <= end_block_weekly)).sort('block_number')
     week_trade_df = week_trade_df.with_columns(
         (week_trade_df['price_value'] * week_trade_df['eth_usd_rate']).rename('price_usd'))
-    # ---------------------------------------------------从pgsql中获取transfer信息------------------------------------
-    # where block_number >= {start_block_weekly} and block_number <= {end_block_weekly}
-    # transfer_info_query_sql = f"select transaction_hash,contract_address,from_address,to_address,value,block_number from transfer_record"
-    # transfer_info = pl.read_database(transfer_info_query_sql, uri)
-    # logger.info("transfer_info加载成功")
-    # print("transfer_info加载成功")
     week_trade_df = week_trade_df.join(contract_info, on='contract_address')
-
     trade_info = trade_info.join(contract_info, on='contract_address')
 
     # 总市值计算
@@ -256,6 +249,25 @@ def weekly_report_task():
     ]).sort('price_value_avg', descending=True).head(10)[
         ['contract_name', 'price_value_avg', 'price_value_max', 'price_value_min']]
     print(f'{week_trade_df_token}')
+    print(week_trade_df_token.shape, week_trade_df_token.columns)
+    print(week_trade_df_token.head(10))
+    print('平均值', week_trade_df['price_value'].mean())
+    print('group by  max ', week_trade_df.groupby(['contract_address', 'token_id']).max().sort('price_value'))
+    print('group by  min ', week_trade_df.groupby(['contract_address', 'token_id']).min().sort('price_value'))
+    print('最高价', week_trade_df_token.head(1))
+    print('最低价', week_trade_df_token.tail(1))
+
+
+    logger.info(f'{week_trade_df_token}')
+    print(week_trade_df_token.shape, week_trade_df_token.columns)
+    print(week_trade_df_token.head(10))
+    print('平均值', week_trade_df['price_value'].mean())
+    print('group by  max ',week_trade_df.groupby(['contract_address', 'token_id']).max().sort('price_value'))
+    print('group by  min ',week_trade_df.groupby(['contract_address', 'token_id']).min().sort('price_value'))
+    print('最大值', week_trade_df_token.head(1))
+    print('最小值', week_trade_df_token.tail(1))
+    # .sort('price_value_avg', descending=True).head(10)[
+    #     ['contract_name', 'price_value_avg', 'price_value_max', 'price_value_min']]
     logger.info(f'{week_trade_df_token}')
 
     # all time 成交价格计算
