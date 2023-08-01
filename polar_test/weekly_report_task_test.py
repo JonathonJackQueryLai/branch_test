@@ -147,7 +147,7 @@ def weekly_report_task():
     trade_volume_market_df = week_trade_df.select(['market', 'price_usd']).groupby('market').sum().sort('price_usd',
                                                                                                         descending=True)
     print(f'trade_volume_market_df:{trade_volume_market_df}')
-    print(f'{start_date}至{end_date},交易量合计为:',
+    print(f'{start_date}至{end_date},交易量合计为:',f"{week_trade_df['price_value'].sum()}ETH"
           f"{round(trade_volume_df['price_usd'].sum(), 2)}USD",
           f"由{trade_info.groupby(['contract_address']).count().shape[0]}个Collection贡献",
           f'由{trade_volume_df_nft}个nft贡献')
@@ -160,7 +160,7 @@ def weekly_report_task():
     trade_volume_collection_df_head = trade_volume_collection_df.head(10)
     print(trade_volume_collection_df_head)
 
-    logger.info(f'{start_date}至{end_date},交易量合计为:', round(trade_volume_df['price_usd'].sum(), 2),
+    logger.info(f'{start_date}至{end_date},交易量合计为:',f"{trade_info['price_value'].sum()}ETH",round(trade_volume_df['price_usd'].sum(), 2),
                 f'USD,由{trade_volume_df.shape[0]}个Collection贡献')
     logger.info(f'collection级别本周交易量排行榜为：')
     logger.info(f'{trade_volume_collection_df_head}')
