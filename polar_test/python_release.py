@@ -6,13 +6,14 @@
 # @Software: PyCharm
 # @ Motto : 客又至，当如何
 import logging
-import pandas as pd
+import polars as pl
 import datetime
 import smtplib
 import email.message
-import pymysql
+
 log = logging.getLogger('task')
 from sqlalchemy import create_engine
+
 
 def weekly_report_task():
     uri = "postgresql://postgres:nft_project123@52.89.34.220:5432/eth_nft"
@@ -87,13 +88,12 @@ def weekly_report_task():
 
 if __name__ == '__main__':
     # weekly_report_task()
-    import polars as pl
 
     # 构建示例数据
     data = {
-        'contract_address': ['0x123', '0x456', '0x123', '0x789', '0x456','0x789'],
-        'token_id': [1, 2, 1, 3, 2,3],
-        'price': [100, 200, 150, 300, 250,1000]
+        'contract_address': ['0x123', '0x456', '0x123', '0x789', '0x456', '0x789'],
+        'token_id': [1, 2, 1, 3, 2, 3],
+        'price': [100, 200, 150, 300, 250, 1000]
     }
 
     # 创建DataFrame
@@ -104,11 +104,10 @@ if __name__ == '__main__':
         pl.min('price').alias('min_price'),
         pl.max('price').alias('max_price'),
         pl.mean('price').alias('avg_price')
-    ).sort('avg_price',descending=True)
-    print(week_trade_df.groupby(['contract_address', 'token_id']).sum())
-        # 计算 price 字段的平均值
-    average_price = week_trade_df['price'].mean()
-    print(average_price)
+    ).sort('avg_price', descending=True)
+    # print(week_trade_df.groupby(['contract_address', 'token_id']).sum()[['token_id', 'price']])
+    print(result.tail(1)[['min_price']]['min_price'][0])
+    # 计算 price 字段的平均值
+    # average_price = week_trade_df['price'].mean()
+    # print(average_price)
     # 打印结果
-    # print(result.head(1))
-    # print(result.tail(1))
