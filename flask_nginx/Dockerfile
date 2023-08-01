@@ -27,9 +27,8 @@ EXPOSE 23379
 # Create a directory for logs
 RUN mkdir -p /app/logs
 
-ENV FLASK_APP=app.py
 # Redirect Flask logs to the log file
-CMD ["gunicorn", "-w", "4", "app:app", "-b", "0.0.0.0:23379", "--access-logfile", "/app/logs/flask.log", "--error-logfile", "/app/logs/error.log"]
+CMD ["gunicorn", "-w", "1", "demo:app", "-b", "0.0.0.0:23379", "--access-logfile", "/app/logs/flask.log", "--error-logfile", "/app/logs/error.log"]
 
 #CMD ["gunicorn", "-w", "4", "api_server:app", "-b", "0.0.0.0:23372"]
 

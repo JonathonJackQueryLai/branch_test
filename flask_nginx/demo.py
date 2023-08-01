@@ -4,15 +4,14 @@
 # @File    : demo.py
 # @Time    : 2023/6/27 9:10
 # @motto   :  rain cats and dogs
-from flask import Flask  # 用于创建 Flask 实例
+from flask import Flask, app  # 用于创建 Flask 实例
 from flask_restful import Api, Resource, reqparse, inputs
 
 # 用于绑定 Flask 对象, 继承父类, 实例化对象, 判断 url
 
-web = Flask(__name__)
+app = Flask(__name__)
 # 使用 Api 来绑定 web
-api = Api(web)
-
+api = Api(app)
 
 class IndexView(Resource):
     def get(self):
@@ -41,5 +40,4 @@ api.add_resource(IndexView, '/index')
 
 
 if __name__ == '__main__':
-    web.run(debug=True, port=23379)  # 运行 Flask 实例
-
+    app.run(debug=False, port=23379)
