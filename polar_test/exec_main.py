@@ -22,3 +22,5 @@ if __name__ == '__main__':
     )
     print(df.filter(pl.col('foo') > 2))
     print(df.groupby('foo').count()['count'])
+    print(df['foo'].mean())
+

@@ -46,11 +46,11 @@ def weekly_report_task():
     # 从pgsql中获取合约信息
     contract_info_query_sql = "select contract_address,contract_type,contract_name,contract_symbol,init_block from contract_info"
     contract_info = pl.read_database(contract_info_query_sql, uri)
-    logger.info("contract_info加载成功")
+
     # 从pgsql中获取块信息
     block_info_query_sql = "select block_number,timestamp_of_block,date_of_block from block_info"
     block_info = pl.read_database(block_info_query_sql, uri)
-    logger.info("block_info加载成功")
+
     # 从pgsql中获取汇率信息
     rate_info_query_sql = "select date_of_rate,eth_usd_rate from rate_info"
     rate_info = pl.read_database(rate_info_query_sql, uri)
@@ -59,7 +59,7 @@ def weekly_report_task():
     trade_info_query_sql = "select transaction_hash,block_number,contract_address,token_id,seller,buyer,currency_address,price_value,market from trade_record"
     trade_info = pl.read_database(trade_info_query_sql, uri)
     print("表trade_info加载成功")
-    logger.info("trade_info加载成功")
+
     print('00000000000000000000000000 从Pgsql获取数据成功.')
     # set the currency filter
     currency_list = [
@@ -95,6 +95,7 @@ def weekly_report_task():
     # 时间为从当前任务执行之间到7天前, 时间跨度为一周
     # start_date = (datetime.datetime.now() - datetime.timedelta(days=7)).strftime('%Y-%m-%d')
     # end_date = datetime.datetime.today().strftime('%Y-%m-%d')
+    # 改为使用接受start_date的入参来启动脚本
     end_date = datetime.datetime.strptime(start_date, "%Y-%m-%d") + datetime.timedelta(days=6)
     week_block_df = block_info.filter((pl.col('date').cast(str) >= start_date) & (pl.col('date').cast(str) <= end_date))
     start_block_weekly = week_block_df.head(1)['block_number'][0]
@@ -116,41 +117,45 @@ def weekly_report_task():
     # where block_number >= {start_block_weekly} and block_number <= {end_block_weekly}
     transfer_info_query_sql = f"select transaction_hash,contract_address,from_address,to_address,token_id,block_number from transfer_record where block_number >= {start_block_weekly} and block_number <= {end_block_weekly}"
     transfer_info = pl.read_database(transfer_info_query_sql, uri)
-    logger.info("transfer_info加载成功")
     print("transfer_info加载成功")
     week_transfer_df = transfer_info.filter((pl.col('block_number').cast(int) >= start_block_weekly) & (
             pl.col('block_number').cast(int) <= end_block_weekly)).sort('block_number')
 
     # 全量计算
     token_num_df = transfer_info.groupby(['contract_address', 'token_id']).count()
-    # token_num_df = transfer_info.groupby(['contract_address']).count()
     marketcap_df = contract_info.join(token_num_df, on='contract_address').join(avg_price_df, on='contract_address')
-
+    print(marketcap_df)
     market_cap_eth = round((marketcap_df['count'] * marketcap_df['price_value']).sum(), 2)
     market_cap_usd = round((marketcap_df['count'] * marketcap_df['price_usd']).sum(), 2)
     trade_all_df_nft = trade_info.groupby(['contract_address', 'token_id']).count().shape[0]
     # 截至周末的交易总量 ETH  USD
     market_cap_result = f'截至{end_date},总市值为:{market_cap_eth}ETH/{market_cap_usd}USD', f"由{trade_info.groupby(['contract_address']).count().shape[0]}个Collection贡献", f"由{trade_all_df_nft}个nft贡献"
-    print(f'{market_cap_result}')
-    logger.info(f'{market_cap_result}')
+    print(market_cap_result)
+    logger.info(market_cap_result)
 
     # 周交易量排行榜计算
     trade_volume_df = week_trade_df.select(['contract_address', 'price_usd']).groupby('contract_address').sum()
+    trade_volume_df_eth = week_trade_df['price_value'].sum()
     print('trade_volume_df', trade_volume_df)
     # 周交易量nft贡献值
     trade_volume_df_nft = week_trade_df.groupby(['contract_address', 'token_id']).count().shape[0]
 
     # final result
+    # trade_volume_collection_df是排行榜
     trade_volume_collection_df = trade_volume_df.join(contract_info, on='contract_address').select(
         ['contract_name', 'price_usd']).sort('price_usd', descending=True)
     trade_volume_market_df = week_trade_df.select(['market', 'price_usd']).groupby('market').sum().sort('price_usd',
                                                                                                         descending=True)
-    print(f'{start_date}至{end_date},交易量合计为:', f"{round(trade_volume_df['price_value'].sum(), 2)}ETH",
-          f"{round(trade_volume_df['price_usd'].sum(), 2)}USD", f'由{trade_volume_df.shape[0]}个Collection贡献',
+    print(f'trade_volume_market_df:{trade_volume_market_df}')
+    print(f'{start_date}至{end_date},交易量合计为:',
+          f"{round(trade_volume_df['price_usd'].sum(), 2)}USD",
+          f"由{trade_info.groupby(['contract_address']).count().shape[0]}个Collection贡献",
           f'由{trade_volume_df_nft}个nft贡献')
-    logger.info(f'{start_date}至{end_date},交易量合计为:', f"{round(trade_volume_df['price_value'].sum(), 2)}ETH",
-                f"{round(trade_volume_df['price_usd'].sum(), 2)}USD", f'由{trade_volume_df.shape[0]}个Collection贡献',
+    logger.info(f'{start_date}至{end_date},交易量合计为:',
+                f"{round(trade_volume_df['price_usd'].sum(), 2)}USD",
+                f"由{trade_info.groupby(['contract_address']).count().shape[0]}个Collection贡献",
                 f'由{trade_volume_df_nft}个nft贡献')
+
     print(f'collection级别本周交易量排行榜为：')
     trade_volume_collection_df_head = trade_volume_collection_df.head(10)
     print(trade_volume_collection_df_head)
@@ -264,24 +269,21 @@ def weekly_report_task():
         ['contract_name', 'price_value_avg', 'price_value_max', 'price_value_min']]
     print(f'{week_trade_df_token.head(10)}')
     # Token级别本周市场的平均值
-    print('市场的平均值', week_trade_df['price_value'].mean())
+    print('week市场的平均值', week_trade_df['price_value'].mean())
+    print('week市场的平均值', week_trade_df_token['price_value_avg'].mean())
 
     week_trade_df_token1 = \
         week_trade_df.groupby(['contract_address', 'token_id']).max().sort('price_value', descending=True)[
             ['contract_name', 'price_value']]
-    group_by_max = week_trade_df_token1.head(1)
-    group_by_min = week_trade_df_token1.filter(pl.col('price_value')).tail(1)
-    print(f'group_by_max:{group_by_max}')
+    group_by_min = week_trade_df_token1.filter(pl.col('price_value') > 0).tail(1)
     print(f'group_by_min:{group_by_min}')
-    print(f'group_by_max:{week_trade_df_token.head(1)}')
-    print(f'group_by_min:{week_trade_df_token.tail(1)}')
     logger.info(f'Token级别最高价：{week_trade_df_token.head(1)}')
-    logger.info(f"Token级别最低价：{week_trade_df_token.filter(pl.col('price_value') > 0).tail(1)}")
-    logger.info('市场的平均值', week_trade_df['price_value'].mean())
+    logger.info(f"Token级别最低价：{group_by_min}")
+
     # Token级别本周市场的总交易量
-    week_trade_df_sum = week_trade_df['price_value'].sum()
-    print(f'Token级别本周市场的总交易量 :{week_trade_df_sum}')
-    logger.info(f'Token级别本周市场的总交易量 :{week_trade_df_sum}')
+    # week_trade_df_sum = week_trade_df['price_value'].sum()
+    # print(f'Token级别本周市场的总交易量 :{week_trade_df_sum}')
+    # logger.info(f'Token级别本周市场的总交易量 :{week_trade_df_sum}')
 
     print('Token级别all time排行榜如下:')
     logger.info('Token级别all time排行榜如下:')
@@ -306,15 +308,15 @@ def weekly_report_task():
     print(f'all_time_group_by_min:{group_by_min}')
     print(f'group_by_max:{trade_info_token.head(1)}')
     print(f'group_by_min:{trade_info_token.tail(1)}')
-    print('all_time 市场平均值', week_trade_df['price_value'].mean())
+    print('all_time 市场平均值', trade_info['price_value'].mean())
+    print('all time 市场的平均值', trade_info_token['price_value_avg'].mean())
     logger.info(f'all_time token级别市场最高价:{group_by_max}')
     logger.info(f'all_time token级别市场最低价:{group_by_min}')
-    logger.info('all_time 市场平均值', trade_info['price_value'].mean())
 
     # Token级别本周市场的总交易量
     trade_volume_df_nft_sum = week_trade_df['price_value'].sum()
-    print(f'Token级别本周市场的总交易量 :{week_trade_df_sum}')
-    logger.info(f'Token级别本周市场的总交易量 :{week_trade_df_sum}')
+    # print(f'Token级别本周市场的总交易量 :{week_trade_df_sum}')
+    # logger.info(f'Token级别本周市场的总交易量 :{week_trade_df_sum}')
 
     # all time 成交价格计算
     print('Collection级别all time排行榜如下:')
