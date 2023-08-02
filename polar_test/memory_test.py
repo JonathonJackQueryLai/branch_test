@@ -15,13 +15,6 @@ uri = "postgresql://dev_user:nft_project_dev220@52.89.34.220:5432/eth_nft"
 import gc
 
 
-def trade_info_generator(uri, pages, chunks):
-    for i in range(pages):
-        trade_info_query_sql = f"select currency_address, contract_address,price_value,block_number from trade_record  limit {chunks} offset {i * chunks}"
-        trade_info_temp = pl.read_database(trade_info_query_sql, uri, partition_num=10)
-        yield trade_info_temp
-
-
 @profile
 def my_function():
     # 这里是您的代码
@@ -42,25 +35,21 @@ def my_generator():
         yield transfer_info_temp
 
 
-fp = open('./log/memory_profiler.log', 'w+')
+def memory_profiler_test(uri):
+    start_date = '2023-07-17'
+    end_date = '2023-07-23'
+    block_info_sql = """
+         SELECT * FROM block_info
+        """
+    block_info = pl.read_database(block_info_sql, uri)
+    week_block_df = block_info.filter((pl.col('date_of_block').cast(str) >= start_date) & (pl.col('date_of_block').cast(str) <= end_date))
+    start_block_weekly = week_block_df.head(1)['block_number'][0]
+    end_block_weekly = week_block_df.tail(1)['block_number'][0]
+    print(start_block_weekly)
+    print(end_block_weekly)
 
-
-@profile(stream=fp)
-def memory_profiler_test():
-    print(1)
-    time.sleep(1)
-    print(2)
-    time.sleep(1)
-    print(3)
-    time.sleep(1)
-
+    print(week_block_df.sort('block_number').head(1)['block_number'][0])
+    print(week_block_df.sort('block_number').tail(1)['block_number'][0])
 
 if __name__ == '__main__':
-    # memory_profiler_test()
-    import datetime
-
-    timestamp = 16262901
-    dt = datetime.datetime.fromtimestamp(timestamp)
-    formatted_date = dt.strftime('%Y-%m-%d %H:%M:%S')
-
-    print(formatted_date)
+    memory_profiler_test(uri)
