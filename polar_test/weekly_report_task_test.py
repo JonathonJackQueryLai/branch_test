@@ -11,30 +11,10 @@ import os
 import polars as pl
 import datetime
 from dateutil.relativedelta import relativedelta
-import smtplib
-import email.message
 
 # from memory_profiler import profile
 
 # from eth_nft_data_module.task.schedulers import run_scheduler
-
-logging.basicConfig(filename='app.log', level=logging.INFO)
-# 创建格式化器
-formatter = logging.Formatter('%(message)s')
-
-# 创建日志记录器
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-# 创建文件处理器，并将格式化器添加到处理器中
-
-# file_handler = logging.FileHandler(f'./log/app_{datetime.datetime.now().strftime("%Y_%m_%d_%H%M%S_%f")}.log')
-file_handler = logging.FileHandler(
-    f'/home/project/logs/weekreport_log/logs/app_{datetime.datetime.now().strftime("%Y_%m_%d_%H%M%S_%f")}.log')
-file_handler.setFormatter(formatter)
-
-# 将处理器添加到日志记录器中
-logger.addHandler(file_handler)
 
 
 # @profile
@@ -55,12 +35,19 @@ def weekly_report_task(start_date):
     block_info_query_sql = "select block_number,timestamp_of_block,date_of_block from block_info"
     block_info = pl.read_database(block_info_query_sql, uri)
 
+    #block_info周表
+    week_block_df = block_info.filter((pl.col('date').cast(str) >= start_date) & (pl.col('date').cast(str) <= end_date))
+    start_block_weekly = week_block_df.sort('block_number').head(1)['block_number'][0]
+    end_block_weekly = week_block_df.sort('block_number').tail(1)['block_number'][0]
+    print(start_block_weekly)
+    print(end_block_weekly)
+
     # 从pgsql中获取汇率信息
     rate_info_query_sql = "select date_of_rate,eth_usd_rate from rate_info"
     rate_info = pl.read_database(rate_info_query_sql, uri)
 
     # 从pgsql中获取trade信息
-    trade_info_query_sql = "select transaction_hash,block_number,contract_address,token_id,seller,buyer,currency_address,price_value,market from trade_record "
+    trade_info_query_sql = f"select transaction_hash,block_number,contract_address,token_id,seller,buyer,currency_address,price_value,market from trade_record where block_num <= {end_block_weekly}"
     trade_info = pl.read_database(trade_info_query_sql, uri)
     print("表trade_info加载成功")
 
@@ -80,13 +67,8 @@ def weekly_report_task(start_date):
     rate_info = rate_info.rename({'date_of_rate': 'date'})
 
     trade_info = trade_info.join(block_info.with_columns(pl.col('block_number')), on='block_number')
-    week_block_df = block_info.filter((pl.col('date').cast(str) >= start_date) & (pl.col('date').cast(str) <= end_date))
-    start_block_weekly = week_block_df.sort('block_number').head(1)['block_number'][0]
-    end_block_weekly = week_block_df.sort('block_number').tail(1)['block_number'][0]
-    print(start_block_weekly)
-    print(end_block_weekly)
+
     trade_info = trade_info.filter(pl.col('block_number') <= end_block_weekly)
-    print(trade_info.columns)
     trade_info = trade_info.join(rate_info, on='date')
     trade_info = trade_info.with_columns(
         pl.col('price_value').cast(float),
@@ -125,9 +107,13 @@ def weekly_report_task(start_date):
     # ---------------------------------------------------从pgsql中获取transfer信息------------------------------------
     # where block_number >= {start_block_weekly} and block_number <= {end_block_weekly}
     # WHERE block_number <= {end_block_weekly}
-    transfer_info_query_sql = f"select transaction_hash,contract_address,from_address,to_address,token_id,block_number from transfer_record where block_number >= {start_block_weekly} and block_number <= {end_block_weekly}"
+    st = time.time()
+    transfer_info_query_sql = f"select transaction_hash,contract_address,from_address,to_address,token_id,block_number from transfer_record where block_number <= {end_block_weekly}"
+    et = time.time()
     transfer_info = pl.read_database(transfer_info_query_sql, uri)
     print("transfer_info加载成功")
+    # 计算读取最大的表的时间为多少很重要
+    print(f'read transfer_record used time :{et - st}')
     week_transfer_df = transfer_info.filter((pl.col('block_number').cast(int) >= start_block_weekly) & (
             pl.col('block_number').cast(int) <= end_block_weekly)).sort('block_number')
 
@@ -137,18 +123,16 @@ def weekly_report_task(start_date):
     print(marketcap_df)
     market_cap_eth = round((marketcap_df['count'] * marketcap_df['price_value']).sum(), 2)
     market_cap_usd = round((marketcap_df['count'] * marketcap_df['price_usd']).sum(), 2)
-    trade_all_df_nft = trade_info.groupby(['contract_address', 'token_id']).count().shape[0]
-
     logger.info(
-        '**************************************************第一章**************************************************')
+        '**************************************************第一部分**************************************************')
 
     # ------------------------------------ 截至周末的总市值 ETH  USD
-    market_cap_result = f"截至{end_date},总市值为:{market_cap_eth}ETH/{market_cap_usd}USD, 由{trade_info.groupby(['contract_address']).count().shape[0]}个Collection贡献, 由{trade_all_df_nft}个nft贡献"
+    market_cap_result = f"截至{end_date},总市值为:{market_cap_eth}ETH/{market_cap_usd}USD, 由{trade_info.groupby(['contract_address']).count().shape[0]}个Collection贡献, 由{token_num_df}个nft贡献"
     print(market_cap_result)
     logger.info(market_cap_result)
 
     logger.info(
-        '**************************************************第二章**************************************************')
+        '**************************************************第二部分**************************************************')
     # 周交易量排行榜计算
     trade_volume_df = week_trade_df.select(['contract_address', 'price_usd']).groupby('contract_address').sum()
     trade_volume_df_eth = week_trade_df['price_value'].sum()
@@ -182,7 +166,7 @@ def weekly_report_task(start_date):
         f"截至{end_date},交易量合计为:{trade_info['price_value'].sum()}ETH/{round(trade_info['price_usd'].sum(), 2)}USD,由{trade_info.groupby(['contract_address']).count().shape[0]}个Collection贡献,由{trade_info_df_nft}个nft贡献")
 
     logger.info(
-        '**************************************************第三章**************************************************')
+        '**************************************************第三部分**************************************************')
     logger.info(
         f'------------------------------------本周transfer交易次数总量计算------------------------------------\n')
     week_transfer_count = week_transfer_df.shape[0]
@@ -207,7 +191,7 @@ def weekly_report_task(start_date):
     print(f'截止至{end_date}trade交易次数总量为 {all_time_trade_count} 次')
     logger.info(f'截止至{end_date}trade交易次数总量为 {all_time_trade_count} 次')
     logger.info(
-        '**************************************************第四章**************************************************')
+        '**************************************************第四部分**************************************************')
     print('Token级别本周排行榜如下:')
     logger.info('\nToken级别本周排行榜如下:')
     week_trade_df_token = week_trade_df.with_columns(
@@ -264,7 +248,7 @@ def weekly_report_task(start_date):
     logger.info(f"Token级别all_time市场平均值:{trade_info['price_value'].mean()}")
 
     logger.info(
-        '**************************************************第五章**************************************************')
+        '**************************************************第五部分**************************************************')
 
     # 周初次交易统计计算
     before_trade_set = set(
@@ -285,6 +269,7 @@ def weekly_report_task(start_date):
     )
     holder_num = holder_df['to_address'].unique().shape[0]
     token_num = holder_df.shape[0]
+    print(f'token_num:{token_num}')
     print('总持仓交易者数为：', holder_num)
     print('平均持仓数为：', token_num / holder_num)
     logger.info('\n总持仓交易者数为：%s' % holder_num)
@@ -311,9 +296,8 @@ def weekly_report_task(start_date):
     logger.info('活跃交易者的数量为：%s' % len(active_traders))
     logger.info('活跃交易者的平均持仓数为：%s' % (active_holder_df.shape[0] / len(active_traders)))
 
-
     logger.info(
-        '**************************************************第六章**************************************************')
+        '**************************************************第六部分**************************************************')
     print(f'collection级别本周交易量排行榜为：')
     logger.info(f'collection级别本周交易量排行榜为：')
     trade_volume_collection_df_head = trade_volume_collection_df.head(10)
@@ -334,9 +318,8 @@ def weekly_report_task(start_date):
     logger.info(f'collection级别all-time交易量排行榜为：')
     logger.info(f'{trade_volume_collection_df_head}')
 
-
     logger.info(
-        '**************************************************第七章**************************************************')
+        '**************************************************第七部分**************************************************')
 
     # print('Token级别交易本周次数排行榜为：')
     # print(week_trade_df.groupby(['contract_address','token_id']).count().join(contract_df,on='contract_address').select(['contract_name','token_id','count']).sort('count',descending=True).head(10))
@@ -378,7 +361,7 @@ def weekly_report_task(start_date):
     logger.info(f'{trade_info_collection_time}')
 
     logger.info(
-        '**************************************************第八章**************************************************')
+        '**************************************************第八部分**************************************************')
     # all time 交易次数计算
     print('Collection级别all-time交易次数排行榜为：')
     trade_info_head = trade_info.groupby('contract_address').count().join(contract_info, on='contract_address').select(
@@ -386,7 +369,6 @@ def weekly_report_task(start_date):
     print(trade_info_head)
     logger.info('Collection级别all-time交易次数排行榜为：')
     logger.info(f'{trade_info_head}')
-
 
     # 周交易次数计算
     print('Collection级别本周交易次数排行榜为：')
@@ -397,12 +379,31 @@ def weekly_report_task(start_date):
     logger.info('\nCollection级别本周交易次数排行榜为：')
     logger.info(f'{week_trade_df_head}')
 
+
 if __name__ == '__main__':
+    print(f'to locate the issue that out of memory  ,so print currency process num :{os.getpid()}')
     if sys.argv[1]:
         start_date = sys.argv[1]
     else:
-        print('there is no arg')
+        print('lack of start_date args')
         os.system('exit')
+    logging.basicConfig(level=logging.INFO)
+    # 创建格式化器
+    formatter = logging.Formatter('%(message)s')
+
+    # 创建日志记录器
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    # 创建文件处理器，并将格式化器添加到处理器中
+
+    # file_handler = logging.FileHandler(f'./log/app_{datetime.datetime.now().strftime("%Y_%m_%d_%H%M%S_%f")}.log')
+    file_handler = logging.FileHandler(
+        f'/home/project/logs/weekreport_log/logs/week_report_start_{start_date}.log')
+    file_handler.setFormatter(formatter)
+
+    # 将处理器添加到日志记录器中
+    logger.addHandler(file_handler)
     start_time = time.time()
     weekly_report_task(start_date)
     end_time = time.time()
