@@ -109,16 +109,19 @@ def weekly_report_task(start_date):
     # WHERE block_number <= {end_block_weekly}
     st = time.time()
     transfer_info_query_sql = f"select transaction_hash,contract_address,from_address,to_address,token_id,block_number from transfer_record where block_number <= {end_block_weekly}"
-    et = time.time()
     transfer_info = pl.read_database(transfer_info_query_sql, uri)
+    et = time.time()
     print("transfer_info加载成功")
     # 计算读取最大的表的时间为多少很重要
     print(f'read transfer_record used time :{et - st}')
+
+
     week_transfer_df = transfer_info.filter((pl.col('block_number').cast(int) >= start_block_weekly) & (
             pl.col('block_number').cast(int) <= end_block_weekly)).sort('block_number')
 
     # 全量计算
     token_num_df = transfer_info.groupby(['contract_address', 'token_id']).count()
+
     marketcap_df = contract_info.join(token_num_df, on='contract_address').join(avg_price_df, on='contract_address')
     print(marketcap_df)
     market_cap_eth = round((marketcap_df['count'] * marketcap_df['price_value']).sum(), 2)
