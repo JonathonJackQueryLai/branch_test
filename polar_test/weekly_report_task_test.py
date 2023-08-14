@@ -12,6 +12,7 @@ import polars as pl
 import datetime
 from dateutil.relativedelta import relativedelta
 
+
 # from memory_profiler import profile
 
 # from eth_nft_data_module.task.schedulers import run_scheduler
@@ -25,6 +26,7 @@ def weekly_report_task(start_date):
     end_date = datetime.datetime.strptime(start_date, "%Y-%m-%d") + datetime.timedelta(days=6)
     # end_date = end_date - datetime.timedelta(days=30) * 3
     # end_date = datetime.datetime.strptime(end_date, "%Y-%m-%d")
+    end_date = end_date.strftime("%Y-%m-%d")
     # 数据获取
     uri = "postgresql://dev_user:nft_project_dev220@52.89.34.220:5432/eth_nft"
     # 从pgsql中获取合约信息
@@ -34,8 +36,9 @@ def weekly_report_task(start_date):
     # 从pgsql中获取块信息
     block_info_query_sql = "select block_number,timestamp_of_block,date_of_block from block_info"
     block_info = pl.read_database(block_info_query_sql, uri)
-
-    #block_info周表
+    # join block dataframe, rate dataframe and trade dataframe together
+    block_info = block_info.rename({'date_of_block': 'date'})
+    # block_info周表
     week_block_df = block_info.filter((pl.col('date').cast(str) >= start_date) & (pl.col('date').cast(str) <= end_date))
     start_block_weekly = week_block_df.sort('block_number').head(1)['block_number'][0]
     end_block_weekly = week_block_df.sort('block_number').tail(1)['block_number'][0]
@@ -45,9 +48,9 @@ def weekly_report_task(start_date):
     # 从pgsql中获取汇率信息
     rate_info_query_sql = "select date_of_rate,eth_usd_rate from rate_info"
     rate_info = pl.read_database(rate_info_query_sql, uri)
-
+    rate_info = rate_info.rename({'date_of_rate': 'date'})
     # 从pgsql中获取trade信息
-    trade_info_query_sql = f"select transaction_hash,block_number,contract_address,token_id,seller,buyer,currency_address,price_value,market from trade_record where block_num <= {end_block_weekly}"
+    trade_info_query_sql = f"select transaction_hash,block_number,contract_address,token_id,seller,buyer,currency_address,price_value,market from trade_record where block_number <= {end_block_weekly}"
     trade_info = pl.read_database(trade_info_query_sql, uri)
     print("表trade_info加载成功")
 
@@ -61,10 +64,6 @@ def weekly_report_task(start_date):
     trade_info = trade_info.filter(
         pl.col('currency_address').is_in(currency_list)
     )
-
-    # join block dataframe, rate dataframe and trade dataframe together
-    block_info = block_info.rename({'date_of_block': 'date'})
-    rate_info = rate_info.rename({'date_of_rate': 'date'})
 
     trade_info = trade_info.join(block_info.with_columns(pl.col('block_number')), on='block_number')
 
@@ -108,13 +107,12 @@ def weekly_report_task(start_date):
     # where block_number >= {start_block_weekly} and block_number <= {end_block_weekly}
     # WHERE block_number <= {end_block_weekly}
     st = time.time()
-    transfer_info_query_sql = f"select transaction_hash,contract_address,from_address,to_address,token_id,block_number from transfer_record where block_number <= {end_block_weekly}"
+    transfer_info_query_sql = f"select transaction_hash,contract_address,from_address,to_address,token_id,block_number from transfer_record  where  block_number <= {end_block_weekly}"
     transfer_info = pl.read_database(transfer_info_query_sql, uri)
     et = time.time()
     print("transfer_info加载成功")
     # 计算读取最大的表的时间为多少很重要
     print(f'read transfer_record used time :{et - st}')
-
 
     week_transfer_df = transfer_info.filter((pl.col('block_number').cast(int) >= start_block_weekly) & (
             pl.col('block_number').cast(int) <= end_block_weekly)).sort('block_number')
@@ -278,8 +276,11 @@ def weekly_report_task(start_date):
     logger.info('\n总持仓交易者数为：%s' % holder_num)
     logger.info('平均持仓数为：%s' % (token_num / holder_num))
     # 活跃交易者计算 计算口径按三个月日期相减
+
+    last_three_month_date = datetime.datetime.strptime(end_date, "%Y-%m-%d") + relativedelta(months=-3)
+    last_three_month_date = last_three_month_date.strftime("%Y-%m-%d")
     active_block = \
-        block_info.filter(pl.col('date').cast(str) < end_date + relativedelta(months=-3)).tail(1)['block_number'][0]
+        block_info.filter(pl.col('date').cast(str) < last_three_month_date).tail(1)['block_number'][0]
     active_df = trade_info.groupby(['contract_address', 'token_id']).agg(
         pl.col('seller').last(),
         pl.col('buyer').last(),
