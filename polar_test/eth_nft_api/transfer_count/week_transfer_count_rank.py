@@ -14,6 +14,7 @@ import datetime
 
 
 def transfer_count_rank(start_date, end_date=None):
+    end_date = None
     end_date = end_date if end_date else datetime.datetime.strptime(start_date, "%Y-%m-%d") + datetime.timedelta(days=6)
     last_week_end_date = end_date + datetime.timedelta(days=-7)
     last_week_start_date = last_week_end_date + datetime.timedelta(days=-6)
@@ -60,47 +61,69 @@ def transfer_count_rank(start_date, end_date=None):
     # 周交易次数计算
     print('Collection级别本周交易次数排行榜为：')
 
-    start_date = start_date.replace('-', '_')
-
-    week_trade_df_head = transfer_info.groupby('contract_address').count().join(contract_info,
+    week_transfer_df_head = transfer_info.groupby('contract_address').count().join(contract_info,
                                                                                 on='contract_address').select(
         ['contract_name', 'count']).sort('count', descending=True).head(10)
-    et = time.time()
-    print("transfer_info加载成功")
-    # 计算读取最大的表的时间为多少很重要
-    print(f'read transfer_record used time :{et - st}')
-    #  读取transfer_info的上一周数据的表
 
     last_contract_info = contract_info.filter(
-        pl.col('contract_name').is_in(list(week_trade_df_head['contract_name'])
-    ))
+        pl.col('contract_name').is_in(list(week_transfer_df_head['contract_name'])
+                                      ))
     last_transfer_info_query_sql = f"select transaction_hash,contract_address,from_address,to_address,token_id,block_number from transfer_record where  block_number >= {last_start_block_weekly} and block_number <= {last_end_block_weekly}"
     last_transfer_info = pl.read_database(last_transfer_info_query_sql, uri)
-    last_week_trade_df_head = last_transfer_info.groupby('contract_address').count().join(last_contract_info,
-                                                                                          on='contract_address').select(
+    last_week_transfer_df_head = last_transfer_info.groupby('contract_address').count().join(last_contract_info,
+                                                                                             on='contract_address').select(
         ['contract_name', 'count']).sort('count', descending=True).head(10)
-    last_week_trade_df_head = last_week_trade_df_head.rename({'count': "last_week_change_hands"})
+    last_week_transfer_df_head = last_week_transfer_df_head.rename({'count': "last_week_change_hands"})
 
-    week_trade_df_head = week_trade_df_head.join(last_week_trade_df_head, on='contract_name').with_columns(
-        ((week_trade_df_head['count'] - last_week_trade_df_head['last_week_change_hands']) / week_trade_df_head['count']).rename('change_rate'))
+    week_transfer_df_head = week_transfer_df_head.join(last_week_transfer_df_head, on='contract_name')
+    week_transfer_df_head = week_transfer_df_head.with_columns(
+        ((week_transfer_df_head['count'].cast(float) - week_transfer_df_head['last_week_change_hands'].cast(float)) /
+         week_transfer_df_head['last_week_change_hands'].cast(float)).rename('change_rate'))
 
-    week_trade_df_head = week_trade_df_head.rename({'contract_name': 'project', 'count': "changed_hands"})
-    rank_columns = pl.DataFrame({'rank': [i for i in range(1, week_trade_df_head.shape[0] + 1)]})
-    week_trade_df_head = week_trade_df_head.hstack(rank_columns)
-    print(week_trade_df_head)
+    week_transfer_df_head = week_transfer_df_head.rename({'contract_name': 'project', 'count': "changed_hands"})
+    rank_columns = pl.DataFrame({'rank': [i for i in range(1, week_transfer_df_head.shape[0] + 1)]})
+    week_transfer_df_head = week_transfer_df_head.hstack(rank_columns)
+    print(week_transfer_df_head)
+    start_date = start_date.replace('-', '_')
     # 写入数据库
-    week_trade_df_head.write_database(f'week_trade_df_head_rank_{start_date}', connection_uri=write_uri,
+    week_transfer_df_head.write_database(f'week_transfer_df_head_rank_{start_date}', connection_uri=write_uri,
                                       if_exists='replace')
+
+
+def create_monday(func,*args,**kwargs):
+    start_date = datetime.datetime(2022, 1, 1)
+    end_date = datetime.datetime.now()
+    date_range = pl.date_range(start=start_date, end=end_date, eager=True)
+    date_range = pl.DataFrame({'date': date_range})
+    # 提取所有周一的日期
+    mondays = date_range.filter(pl.col("date").dt.weekday() == 1).with_columns(pl.col('date'))
+    st = time.time()
+    # 打印结果
+    for i in mondays['date']:
+        try:
+            start_date = i.strftime("%Y-%m-%d")
+            print(f'周一日期:{start_date}')
+            func()
+        except Exception as ex:
+            print(ex)
+    et = time.time()
+    print(f'running program used time:{et - st}')
+    return func
+
+
+
 
 
 if __name__ == '__main__':
     uri = "postgresql://dev_user:nft_project_dev220@52.89.34.220:5432/eth_nft"
     write_uri = "postgresql://postgres:nft_project123@52.89.34.220:5432/eth_nft_api"
     print(f'to locate the issue that out of memory  ,so print currency process num :{os.getpid()}')
-    if sys.argv[1]:
-        start_date = sys.argv[1]
-    else:
+    try:
+        if sys.argv[1]:
+            start_date = sys.argv[1]
+            transfer_count_rank(start_date)
+    except Exception as ex:
         print('lack of start_date args')
-    os.system('exit')
+        os.system('exit')
 
-    transfer_count_rank(start_date)
+    # create_monday(transfer_count_rank,'')

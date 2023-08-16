@@ -128,7 +128,7 @@ def weekly_report_task(start_date):
         '**************************************************第一部分**************************************************')
 
     # ------------------------------------ 截至周末的总市值 ETH  USD
-    market_cap_result = f"截至{end_date},总市值为:{market_cap_eth}ETH/{market_cap_usd}USD, 由{trade_info.groupby(['contract_address']).count().shape[0]}个Collection贡献, 由{token_num_df}个nft贡献"
+    market_cap_result = f"截至{end_date},总市值为:{market_cap_eth}ETH/{market_cap_usd}USD, 由{trade_info.groupby(['contract_address']).count().shape[0]}个Collection贡献, 由{token_num_df.shape[0]}个nft贡献"
     print(market_cap_result)
     logger.info(market_cap_result)
 
