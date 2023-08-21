@@ -1,7 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # @Author  : Jonathon
-# @File    : day_transfer_count_rank.py
+# @File    : year_transfer_count.py
+# @Time    : 2023/8/15 14:46
+# @motto   :  rain cats and dogs
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# @Author  : Jonathon
+# @File    : day_transfer_count.py
 # @Time    : 2023/8/15 14:46
 # @motto   :  rain cats and dogs
 
@@ -11,14 +17,13 @@ import os
 import time
 import datetime
 def transfer_count_rank(start_date, end_date=None):
-    #start_date = '2023-01-01'
     end_date = None
     end_date = end_date if end_date else datetime.datetime.strptime(start_date, "%Y-%m-%d") + datetime.timedelta(days=6)
 
     pl.Config.set_fmt_str_lengths(100)
     pl.Config.set_tbl_rows(20)
     # 从pgsql中获取块信息
-    block_info_query_sql = f"select block_number,timestamp_of_block,date_of_block from block_info where date_of_block >= '{start_date}' and date_of_block <='{end_date}' "
+    block_info_query_sql = f"select block_number,timestamp_of_block,date_of_block from block_info where date_of_block = '{start_date}' "
     block_info = pl.read_database(block_info_query_sql, uri)
     # join block dataframe, rate dataframe and trade dataframe together
     block_info = block_info.rename({'date_of_block': 'date'})
@@ -53,7 +58,7 @@ def transfer_count_rank(start_date, end_date=None):
     start_date = start_date.replace('-', '_')
     day_transfer_df_head = day_transfer_df_head.rename({'contract_name': 'project', 'count': "changed_hands"})
     # 写入数据库
-    day_transfer_df_head.write_database(f'day_transfer_count_{start_date}', connection_uri=write_uri,
+    day_transfer_df_head.write_database(f'day_transfer_df_head_rank_{start_date}', connection_uri=write_uri,
                                       if_exists='replace')
 
 
@@ -61,14 +66,7 @@ if __name__ == '__main__':
     uri = "postgresql://dev_user:nft_project_dev220@52.89.34.220:5432/eth_nft"
     write_uri = "postgresql://postgres:nft_project123@52.89.34.220:5432/eth_nft_api"
     print(f'to locate the issue that out of memory  ,so print currency process num :{os.getpid()}')
-    # try:
-    #     if sys.argv[1]:
-    #         start_date = sys.argv[1]
-    #         transfer_count_rank(start_date)
-    # except Exception as ex:
-    #     print('lack of start_date args')
-    #     os.system('exit')
-    start_date = datetime.datetime(2015, 7, 30)
+    start_date = datetime.datetime(2023, 8, 7)
     end_date = datetime.datetime.now()
     date_range = pl.date_range(start=start_date, end=end_date, eager=True)
     # 提取所有一周的日期
