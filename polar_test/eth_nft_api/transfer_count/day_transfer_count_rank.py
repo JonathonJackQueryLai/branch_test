@@ -11,13 +11,14 @@ import os
 import time
 import datetime
 def transfer_count_rank(start_date, end_date=None):
+    #start_date = '2023-01-01'
     end_date = None
     end_date = end_date if end_date else datetime.datetime.strptime(start_date, "%Y-%m-%d") + datetime.timedelta(days=6)
-    last_week_end_date = end_date + datetime.timedelta(days=-7)
+
     pl.Config.set_fmt_str_lengths(100)
     pl.Config.set_tbl_rows(20)
     # 从pgsql中获取块信息
-    block_info_query_sql = f"select block_number,timestamp_of_block,date_of_block from block_info where date_of_block = '{start_date}' "
+    block_info_query_sql = f"select block_number,timestamp_of_block,date_of_block from block_info where date_of_block >= '{start_date}' and date_of_block <='{end_date}' "
     block_info = pl.read_database(block_info_query_sql, uri)
     # join block dataframe, rate dataframe and trade dataframe together
     block_info = block_info.rename({'date_of_block': 'date'})
@@ -35,7 +36,7 @@ def transfer_count_rank(start_date, end_date=None):
 
     #  读取transfer_info的一周数据的表
     st = time.time()
-    transfer_info_query_sql = f"select transaction_hash,contract_address,from_address,to_address,token_id,block_number from transfer_record where  block_number >={start_block_weekly} and  block_number <= {end_block_weekly}"
+    transfer_info_query_sql = f"select transaction_hash,contract_address,from_address,to_address,token_id,block_number from transfer_record where  block_number >= {start_block_weekly} and  block_number <= {end_block_weekly}"
     transfer_info = pl.read_database(transfer_info_query_sql, uri)
     et = time.time()
     print("transfer_info加载成功")
@@ -47,11 +48,12 @@ def transfer_count_rank(start_date, end_date=None):
 
     day_transfer_df_head = transfer_info.groupby('contract_address').count().join(contract_info,
                                                                                 on='contract_address').select(
-        ['contract_name', 'count'])
+        ['contract_name', 'count', 'contract_address'])
 
     start_date = start_date.replace('-', '_')
+    day_transfer_df_head = day_transfer_df_head.rename({'contract_name': 'project', 'count': "changed_hands"})
     # 写入数据库
-    day_transfer_df_head.write_database(f'day_transfer_df_head_rank_{start_date}', connection_uri=write_uri,
+    day_transfer_df_head.write_database(f'day_transfer_count_{start_date}', connection_uri=write_uri,
                                       if_exists='replace')
 
 
@@ -66,7 +68,7 @@ if __name__ == '__main__':
     # except Exception as ex:
     #     print('lack of start_date args')
     #     os.system('exit')
-    start_date = datetime.datetime(2023, 8, 7)
+    start_date = datetime.datetime(2015, 7, 30)
     end_date = datetime.datetime.now()
     date_range = pl.date_range(start=start_date, end=end_date, eager=True)
     # 提取所有一周的日期
