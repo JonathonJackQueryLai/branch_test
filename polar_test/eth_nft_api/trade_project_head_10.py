@@ -31,18 +31,21 @@ def weekly_report_task():
     rate_info = rate_info.rename({'date_of_rate': 'date'})
     print('rename success')
     # 从pgsql中获取trade信息
-    trade_info_query_sql = f"""  
-    select * from trade_record   where contract_address in (
-'0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb',
-'0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d',
-'0x99a9b7c1116f9ceeb1652de04d5969cce509b069',
-'0x60e4d786628fea6478f785a6d7e704777c86a7c6',
-'0x8821bee2ba0df28761afff119d66390d594cd280',
-'0x50f5474724e0ee42d9a4e711ccfb275809fd6d4a',
-'0xed5af388653567af2f388e6224dc7c4b3241c544',
-'0x769272677fab02575e84945f03eca517acc544cc',
-'0x06012c8cf97bead5deae237070f9587f8e7a266d',
-'0x5af0d9827e0c53e4799bb226655a1de152a425a5')  """
+#     trade_info_query_sql = f"""
+#     select * from trade_record   where contract_address in (
+# '0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb',
+# '0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d',
+# '0x99a9b7c1116f9ceeb1652de04d5969cce509b069',
+# '0x60e4d786628fea6478f785a6d7e704777c86a7c6',
+# '0x8821bee2ba0df28761afff119d66390d594cd280',
+# '0x50f5474724e0ee42d9a4e711ccfb275809fd6d4a',
+# '0xed5af388653567af2f388e6224dc7c4b3241c544',
+# '0x769272677fab02575e84945f03eca517acc544cc',
+# '0x06012c8cf97bead5deae237070f9587f8e7a266d',
+# '0x5af0d9827e0c53e4799bb226655a1de152a425a5')  """
+    # 0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d
+    trade_info_query_sql = "select * from trade_record  where contract_address = '0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d'"
+
     trade_info = pl.read_database(trade_info_query_sql, uri)
     currency_list = [
         '0x0000000000000000000000000000000000000000',
@@ -57,7 +60,7 @@ def weekly_report_task():
     trade_info = trade_info.join(rate_info.with_columns(pl.col('eth_usd_rate')), on='date')
     trade_info = trade_info.with_columns(
         (trade_info['price_value'] * trade_info['eth_usd_rate']).rename('eth_usd_price'))
-    trade_info.write_csv('/home/project/logs/weekreport_log/logs/10_contract_address.csv')
+    trade_info.write_csv('/home/project/logs/weekreport_log/logs/trade_0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d.csv')
 
 
 if __name__ == '__main__':

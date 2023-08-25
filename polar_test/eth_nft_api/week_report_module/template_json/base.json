@@ -1,0 +1,168 @@
+{
+    "date": {
+        "year": "",
+        "month": "",
+        "day": ""
+    },
+    "period": {
+        "start": "",
+        "end": ""
+    },
+    "market_overview": {
+        "trading_data": {
+            "total_market_cap": {
+                "eth": "",
+                "usd": ""
+            },
+            "total_trading_volume": {
+                "eth": "",
+                "usd": ""
+            },
+            "new_volume_of_this_week": {
+                "eth": "",
+                "usd": "",
+                "total_collection": "",
+                "total_nfts": ""
+            },
+            "total_transfer_times": {
+                "times": ""
+            },
+            "new_transfer_of_this_week": {
+                "times": ""
+            },
+            "total_trade_times": {
+                "times": ""
+            },
+            "new_trade_of_this_week": {
+                "times": ""
+            }
+        },
+        "strike_price": {
+            "max": {
+                "price_value": "",
+                "contract_name": ""
+            },
+            "avg": {
+                "price_value": ""
+            },
+            "min": {
+                "price_value": "",
+                "contract_name": ""
+            }
+        },
+        "strike_price_of_this_week": {
+            "max": {
+                "price_value": "",
+                "contract_name": ""
+            },
+            "avg": {
+                "price_value": ""
+            },
+            "min": {
+                "price_value": "",
+                "contract_name": ""
+            },
+            "initial_trading_projects_of_this_week": "",
+            "initial_minting_projects_of_this_week": ""
+        },
+        "holder_data": {
+            "number_of_wallets_holding_nfts": "",
+            "avg_amount_of_nfts_held_per_wallet": "",
+            "number_of_active_wallets": "",
+            "avg_amount_of_nfts_held_by_active_wallet": ""
+        }
+    },
+    "leaderboards": {
+        "trading_volume_top_list": {
+            "overall_ranking": [
+                {
+                    "contract_name": "",
+                    "price_usd": ""
+                },
+                {
+                    "contract_name": "",
+                    "price_usd": ""
+                },
+                {
+                    "contract_name": "",
+                    "price_usd": ""
+                }
+            ],
+            "weekly_ranking": [
+                {
+                    "contract_name": "",
+                    "price_usd": ""
+                },
+                {
+                    "contract_name": "",
+                    "price_usd": ""
+                },
+                {
+                    "contract_name": "",
+                    "price_usd": ""
+                }
+            ]
+        },
+        "strike_price_top_list": {
+            "overall_ranking": [
+                {
+                    "contract_name": "",
+                    "price_value_avg": ""
+                },
+                {
+                    "contract_name": "",
+                    "price_value_avg": ""
+                },
+                {
+                    "contract_name": "",
+                    "price_value_avg": ""
+                }
+            ],
+            "weekly_ranking": [
+                {
+                    "contract_name": "",
+                    "price_value_avg": ""
+                },
+                {
+                    "contract_name": "",
+                    "price_value_avg": ""
+                },
+                {
+                    "contract_name": "",
+                    "price_value_avg": ""
+                }
+            ]
+        },
+        "collection_turnover_rate_top_list": {
+            "overall_ranking": [
+                {
+                    "contract_name": "",
+                    "count": ""
+                },
+                {
+                    "contract_name": "",
+                    "count": ""
+                },
+                {
+                    "contract_name": "",
+                    "count": ""
+                }
+            ],
+            "weekly_ranking": [
+                {
+                    "contract_name": "",
+                    "count": ""
+                },
+                {
+                    "contract_name": "",
+                    "count": ""
+                },
+                {
+                    "contract_name": "",
+                    "count": ""
+                }
+            ]
+        }
+    }
+}
+

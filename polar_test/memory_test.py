@@ -6,6 +6,7 @@
 # @motto   :  rain cats and dogs
 import sys
 import time
+from datetime import datetime
 
 from memory_profiler import profile
 
@@ -76,13 +77,28 @@ def memory_profiler_test(uri):
 def change_field():
     query = f"select * from week_trade_df_head_rank_2023_07_24"
     df = pl.read_database(query, api_uri)
-    print(tuple(df['project']))
+    df.with_columns((df['changed_hands']))
+    print(df)
+    # print(tuple(df['project']))
     # df = df.rename({'contract_name': 'project', 'count': "changed_hands"})
     # df1 = pl.DataFrame({'rank': [i for i in range(1, df.shape[0] + 1)]})
     # df = df.hstack(df1)
     # df.write_database('week_trade_df_head_rank_2023_07_24', api_uri, if_exists='append')
+def all_monday():
+    # 创建一个包含2023年所有日期的DataFrame
+    start_date = datetime(2015, 1, 1)
+    end_date = datetime.now()
+    date_range = pl.date_range(start=start_date, end=end_date,eager=True)
+    date_range = pl.DataFrame({'date':date_range})
 
+    # 提取所有周一的日期
+    mondays = date_range.filter(pl.col("date").dt.weekday() == 1).with_columns(pl.col('date'))
+
+    # 打印结果
+    for i in mondays['date']:
+        print(i.strftime("%Y-%m-%d"))
 
 if __name__ == '__main__':
     # memory_profiler_test(uri)
-    change_field()
+    # change_field()
+    all_monday()
