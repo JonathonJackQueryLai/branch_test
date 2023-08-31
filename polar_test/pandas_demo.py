@@ -9,19 +9,19 @@ import polars as pl
 
 li = ['2023-08-18', '2023-08-19', '2023-08-20', '2023-08-21', '2023-08-22', '2023-08-23', '2023-08-24']
 
-for i in li:
-    sql = f"""
-      WITH block_range AS (
-      SELECT min(block_number) AS min_block, max(block_number) AS max_block
-          FROM block_info
-          WHERE date_of_block = '{i}'
-      )
-      SELECT count(1)
-      FROM transfer_record
-      WHERE block_number >= (SELECT min_block FROM block_range)
-      AND block_number <= (SELECT max_block FROM block_range)
-      """
-    df = pl.read_database(query=sql,
-                          connection_uri="postgresql://dev_user:nft_project_dev220@52.89.34.220:5432/eth_nft")
 
-    print(i, df['count'][0])
+sql = f"""
+  SELECT contract_address, token_id,
+MAX(from_address) AS last_from_address,
+MAX(to_address) AS last_to_address,
+count(to_address)
+FROM transfer_record
+GROUP BY contract_address, token_id
+  """
+holder_df = pl.read_database(query=sql,
+                      connection="postgresql://dev_user:nft_project_dev220@52.89.34.220:5432/eth_nft")
+
+holder_num = holder_df['last_to_address'].unique().shape[0]
+holder_df.write_csv('/home/project/logs/weekreport_log/logs/holder_num.csv')
+
+print(holder_num)

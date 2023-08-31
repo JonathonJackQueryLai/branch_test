@@ -36,10 +36,10 @@ def weekly_report_task(start_date):
     contract_info = pl.read_database(contract_info_query_sql, uri)
 
     # 从pgsql中获取块信息
-    block_info_query_sql = "select block_number,timestamp_of_block,date_of_block from block_info"
+    block_info_query_sql = "select block_number,timestamp_of_block,date_of_block as date from block_info"
     block_info = pl.read_database(block_info_query_sql, uri)
     # join block dataframe, rate dataframe and trade dataframe together
-    block_info = block_info.rename({'date_of_block': 'date'})
+    # block_info = block_info.rename({'date_of_block': 'date'})
     # block_info周表
     week_block_df = block_info.filter((pl.col('date').cast(str) >= start_date) & (pl.col('date').cast(str) <= end_date))
     start_block_weekly = week_block_df.sort('block_number').head(1)['block_number'][0]
@@ -48,9 +48,8 @@ def weekly_report_task(start_date):
     print(end_block_weekly)
 
     # 从pgsql中获取汇率信息
-    rate_info_query_sql = "select date_of_rate,eth_usd_rate from rate_info"
+    rate_info_query_sql = "select date_of_rate as date,eth_usd_rate from rate_info"
     rate_info = pl.read_database(rate_info_query_sql, uri)
-    rate_info = rate_info.rename({'date_of_rate': 'date'})
     # 从pgsql中获取trade信息
     trade_info_query_sql = f"select transaction_hash,block_number,contract_address,token_id,seller,buyer,currency_address,price_value from trade_record where block_number <= {end_block_weekly}"
     trade_info = pl.read_database(trade_info_query_sql, uri)
@@ -116,11 +115,12 @@ def weekly_report_task(start_date):
 
     # 全量计算
     # token_num_df = transfer_info.groupby(['contract_address', 'token_id']).count()
-    token_num_df = pl.read_database(f"select contract_address, token_id, count(*) from transfer_record   group by contract_address, token_id order by block_number",connection_uri=uri)
+    token_num_df = pl.read_database(f"select contract_address, token_id, count(*) from transfer_record   group by contract_address, token_id", connection_uri=uri)
     marketcap_df = contract_info.join(token_num_df, on='contract_address').join(avg_price_df, on='contract_address')
     print(marketcap_df)
     market_cap_eth = round((marketcap_df['count'] * marketcap_df['price_value']).sum(), 2)
     market_cap_usd = round((marketcap_df['count'] * marketcap_df['price_usd']).sum(), 2)
+
     logger.info(
         '**************************************************第一部分**************************************************')
 
@@ -129,6 +129,7 @@ def weekly_report_task(start_date):
     week_report_dict['market_overview']["trading_data"]["total_market_cap"]["eth"] = market_cap_eth
     week_report_dict['market_overview']["trading_data"]["total_market_cap"]["usd"] = market_cap_usd
     logger.info(market_cap_result)
+    return
     logger.info(
         '**************************************************第二部分**************************************************')
     # 周交易量排行榜计算
@@ -304,12 +305,19 @@ def weekly_report_task(start_date):
     holder_df_sql = f'''
     SELECT contract_address, token_id,
     MAX(from_address) AS last_from_address,
-    MAX(to_address) AS last_to_address
+    MAX(to_address) AS last_to_address,
+    count(to_address)
     FROM transfer_record
     GROUP BY contract_address, token_id
     '''
     holder_df = pl.read_database(query=holder_df_sql, connection_uri=uri)
     holder_num = holder_df['last_to_address'].unique().shape[0]
+    holder_num = pl.read_database(f''' 
+    SELECT COUNT(last_to_address)
+    FROM transfer_record
+    GROUP BY contract_address, token_id,last_to_address
+    ''')
+
     token_num = holder_df.shape[0]
     print(f'token_num:{token_num}')
     print('总持仓交易者数为：', holder_num)
