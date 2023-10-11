@@ -115,7 +115,7 @@ def weekly_report_task(start_date):
 
     # 全量计算
     # token_num_df = transfer_info.groupby(['contract_address', 'token_id']).count()
-    token_num_df = pl.read_database(f"select contract_address, token_id, count(*) from transfer_record   group by contract_address, token_id", connection_uri=uri)
+    token_num_df = pl.read_database(f"select contract_address, token_id, count(*) from transfer_record group by contract_address, token_id where block_number>= 17959394 and block_number <= 18007049", connection_uri=uri)
     marketcap_df = contract_info.join(token_num_df, on='contract_address').join(avg_price_df, on='contract_address')
     print(marketcap_df)
     market_cap_eth = round((marketcap_df['count'] * marketcap_df['price_value']).sum(), 2)
@@ -129,7 +129,7 @@ def weekly_report_task(start_date):
     week_report_dict['market_overview']["trading_data"]["total_market_cap"]["eth"] = market_cap_eth
     week_report_dict['market_overview']["trading_data"]["total_market_cap"]["usd"] = market_cap_usd
     logger.info(market_cap_result)
-    return
+
     logger.info(
         '**************************************************第二部分**************************************************')
     # 周交易量排行榜计算
